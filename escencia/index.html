@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scence Badge</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            overflow: hidden;
+        }
+
+        .webgl {
+            position: fixed;
+            top: 0;
+            left: 0;
+            outline: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas class="webgl"></canvas>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.127.0/build/three.min.js""></script>
+    <script src="./controls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dat.gui@0.7.7/build/dat.gui.min.js"></script>
+    <script>
+        /**
+         * Debug
+         */
+        const gui = new dat.GUI()
+        gui.width = 400
+
+        // Cursor
+        const cursor = {
+            x: 0,
+            y: 0,
+        }
+        window.addEventListener('mousemove', (event) => {
+            cursor.x = event.clientX / sizes.width - 0.5
+            cursor.y = - (event.clientY / sizes.height - 0.5)
+        })
+
+        /**
+         * Textures
+         */
+        const textureLoader = new THREE.TextureLoader()
+        const badgeColorTexture = textureLoader.load('./textures/escence-one/escencia-color.png')
+        const badgeAlphaTexture = textureLoader.load('./textures/escence-one/escencia-alpha.png')
+        const badgeAmbientOcclusionTexture = textureLoader.load('./textures/escence-one/escencia-oclusion.png')
+        const badgeHeightTexture = textureLoader.load('./textures/escence-one/escencia-displacement.png')
+        const badgeNormalTexture = textureLoader.load('./textures/escence-one/escencia-normals.png')
+        const badgeNormalTextureTwo = textureLoader.load('./textures/escence-one/escencia-normals-2.png')
+        const badgeNormalTextureTest = textureLoader.load('./textures/escence-one/escencia-normals-test.png')
+
+
+        const badgeBackHeightTexture = textureLoader.load('./textures/escence-one/escencia-back-displacement.png')
+        const badgeBackColorTexture = textureLoader.load('./textures/escence-one/escencia-color.png')
+        const badgeBackAmbientOcclusionTexture = textureLoader.load('./textures/escence-one/rock-ambientocclusion.jpeg')
+        const badgeBackNormalTexture = textureLoader.load('./textures/escence-one/normals.jpeg')
+
+        const badgeTwoColorTexture = textureLoader.load('./textures/escence-two/escencia-2-color.png')
+        const badgeTwoAlphaTexture = textureLoader.load('./textures/escence-two/escencia-2-alpha.png')
+        const badgeTwoRoughnessTexture = textureLoader.load('./textures/escence-two/escencia-2-roughness.png')
+        const badgeTwoHeightTexture = textureLoader.load('./textures/escence-two/escencia-2-height.png')
+
+        const badgeThreeAlphaHeight = textureLoader.load('./textures/escence-three/escencia-3-alpha-height.png')
+        const badgeThreeMaps = textureLoader.load('./textures/escence-three/material-3.png')
+
+        /**
+         * Base
+         */
+        // Canvas
+        const canvas = document.querySelector('canvas.webgl')
+
+        // Scene
+        const scene = new THREE.Scene()
+
+
+        /**
+         * Lights
+         */
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2)
+        scene.add(ambientLight)
+
+        const backPointLight = new THREE.PointLight(0xffffff, 1, 10, 2)
+        backPointLight.position.set(0, 1, -2)
+        scene.add(backPointLight)
+
+        const backPointLightHelper = new THREE.PointLightHelper(backPointLight, 0.2)
+        scene.add(backPointLightHelper)
+
+        const frontLight = new THREE.DirectionalLight(0xffffff, 1.7)
+
+        frontLight.castShadow = true
+        gui.add(frontLight, 'intensity').min(0.1).max(3).step(0.1).name('Light Front Intensity')
+        gui.add(frontLight.position, 'x').min(-3).max(3).step(0.5).name('Light Position X')
+        gui.add(frontLight.position, 'y').min(-3).max(3).step(0.5).name('Light Position Y')
+        gui.add(frontLight.position, 'z').min(-3).max(3).step(0.5).name('Light Position Z')
+        frontLight.position.set(-0.5, .5, .5)
+        frontLight.shadow.mapSize.width = 1024 * 4
+        frontLight.shadow.mapSize.height = 1024 * 4
+
+        frontLight.shadow.camera.near = 0.01
+        frontLight.shadow.camera.far = 3
+        frontLight.shadow.camera.top = 1
+        frontLight.shadow.camera.right = 1
+        frontLight.shadow.camera.bottom = - 1
+        frontLight.shadow.camera.left = - 1
+
+        const config = {
+            'helpers visibility': true,
+            wireframes: false,
+        }
+
+        const frontLightHelper = new THREE.DirectionalLightHelper(frontLight, 0.2)
+        const directionalLightHelper = new THREE.CameraHelper(frontLight.shadow.camera)
+
+        scene.add(frontLight)
+        scene.add(frontLightHelper)
+        scene.add(directionalLightHelper)
+
+        /**
+         * Objects
+         */
+        const badge = new THREE.Group()
+        badge.position.x = -1
+        gui.add(badge.position, 'x').min(-1).max(1).step(1).name('Badge In Center')
+        scene.add(badge)
+
+        // Front Material
+        const badgeOneFrontMaterial = new THREE.MeshStandardMaterial()
+
+        const badgeOneFront = new THREE.Mesh(
+            new THREE.PlaneBufferGeometry(1, 1, 1000, 1000),
+            badgeOneFrontMaterial,
+        )
+        badgeOneFront.position.x = - 1
+
+        badgeOneFrontMaterial.map = badgeColorTexture
+        badgeOneFrontMaterial.alphaMap = badgeAlphaTexture
+        badgeOneFrontMaterial.transparent = true
+        badgeOneFrontMaterial.displacementMap = badgeHeightTexture
+        badgeOneFrontMaterial.normalMap = badgeNormalTextureTwo
+        badgeOneFrontMaterial.displacementScale = 0.05
+        badgeOneFrontMaterial.normalScale.set(3, 3)
+        badgeOneFrontMaterial.side = THREE.DoubleSide
+
+        gui.add(badgeOneFrontMaterial, 'aoMapIntensity')
+            .min(0)
+            .max(10)
+            .step(0.0001)
+            .name('Badge Front Shadows')
+
+        gui.add(badgeOneFrontMaterial, 'displacementScale')
+            .min(0)
+            .max(1)
+            .step(0.0001)
+            .name('Badge Front Height')
+
+        badge.add(badgeOneFront)
+
+        // Back Material
+        const badgeBackMaterial = new THREE.MeshStandardMaterial()
+        badgeBackMaterial.map = badgeColorTexture
+        badgeBackMaterial.alphaMap = badgeAlphaTexture
+        badgeBackMaterial.transparent = true
+        badgeBackMaterial.displacementMap = badgeBackHeightTexture
+        badgeBackMaterial.normalMap = badgeNormalTextureTest
+        badgeBackMaterial.displacementScale = 0.05
+        badgeBackMaterial.normalScale.set(0.5, 0.5)
+        badgeBackMaterial.side = THREE.DoubleSide
+
+        gui.add(badgeBackMaterial, 'aoMapIntensity')
+            .min(0)
+            .max(10)
+            .step(0.0001)
+            .name('Badge Back Shadows')
+
+        gui.add(badgeBackMaterial, 'displacementScale')
+            .min(0)
+            .max(1)
+            .step(0.0001)
+            .name('Badge Back Height')
+
+        const badgeTwoBack = new THREE.Mesh(
+            new THREE.PlaneBufferGeometry(1, 1, 100, 100),
+            badgeBackMaterial,
+        )
+
+        badge.add(badgeTwoBack)
+
+        // Second Front Material
+        const badgeTwoFrontMaterial = new THREE.MeshStandardMaterial()
+        const badgeTwoFront = new THREE.Mesh(
+            new THREE.PlaneBufferGeometry(1, 1, 1000, 1000),
+            badgeTwoFrontMaterial,
+        )
+
+        badgeTwoFront.position.z = 0.05
+        badgeTwoFrontMaterial.map = badgeTwoColorTexture
+        badgeTwoFrontMaterial.alphaMap = badgeTwoAlphaTexture
+        badgeTwoFrontMaterial.transparent = true
+        badgeTwoFrontMaterial.displacementMap = badgeTwoHeightTexture
+        badgeTwoFrontMaterial.displacementScale = 0.04
+        badgeTwoFrontMaterial.roughness = 0.6
+        gui.add(badgeTwoFrontMaterial, 'roughness')
+            .min(0)
+            .max(1)
+            .step(0.0001)
+            .name('Turquoise Roughtness')
+        badgeTwoFrontMaterial.roughnessMap = badgeTwoRoughnessTexture
+        badge.add(badgeTwoFront)
+
+        // Three Badge
+        const badgeThreeMaterial = new THREE.MeshStandardMaterial()
+        badgeThreeMaterial.map = badgeColorTexture
+        badgeThreeMaterial.normalMap = badgeNormalTextureTwo
+        badgeThreeMaterial.normalScale.set(3, 3)
+
+        const badgeThreeBack = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.41, 0.41, 0.05, 32 ),
+            badgeThreeMaterial,
+        )
+        badgeThreeBack.rotateX(Math.PI / 2)
+        badgeThreeBack.position.x = 1
+        badge.add(badgeThreeBack)
+        const badgeThreeIntemediate = new THREE.Mesh(
+            new THREE.PlaneBufferGeometry(1, 1, 1000, 1000),
+            badgeTwoFrontMaterial,
+        )
+        badgeThreeIntemediate.position.x = 1
+        badgeThreeIntemediate.position.z = 0.01
+
+        badgeThreeIntemediate.receiveShadow = true
+        badge.add(badgeThreeIntemediate)
+
+        const badgeThreeFrontMaterial = new THREE.MeshStandardMaterial({ color: '#0CB1BE' })
+        const badgeThreeFront = new THREE.Mesh(
+            new THREE.PlaneGeometry(1, 1, 2000, 2000),
+            badgeThreeFrontMaterial,
+        )
+        badgeThreeFrontMaterial.alphaTest = 0.001
+        // badgeThreeFrontMaterial.depthTest = false
+        badgeThreeFrontMaterial.shadowSide = THREE.FrontSide
+        badgeThreeFrontMaterial.map = badgeThreeMaps
+        badgeThreeFrontMaterial.alphaMap = badgeThreeAlphaHeight
+        badgeThreeFrontMaterial.transparent = true
+        badgeThreeFrontMaterial.displacementMap = badgeThreeAlphaHeight
+        badgeThreeFrontMaterial.displacementScale = 0.01
+        badgeThreeFrontMaterial.roughness = 0.3
+
+
+        badgeThreeFront.customDepthMaterial = new THREE.MeshDepthMaterial({
+            alphaMap: badgeThreeAlphaHeight,
+            depthPacking: THREE.RGBADepthPacking,
+            alphaTest: 0.1
+        })
+
+
+        gui.add(badgeThreeFrontMaterial, 'roughness').min(0).max(1).step(0.001).name('Badge Three Front Roughness')
+
+        gui
+            .add(config, 'helpers visibility')
+            .name('Light Helpers Visibility')
+            .onChange((visible) => {
+                backPointLightHelper.visible = visible
+                frontLightHelper.visible = visible
+                directionalLightHelper.visible = visible
+            })
+            .setValue(false)
+
+        badgeThreeFront.castShadow = true
+        badgeThreeFront.position.x = 1
+        badgeThreeFront.position.z = 0.055
+        badge.add(badgeThreeFront)
+
+
+        /**
+         * Sizes
+         */
+        const sizes = {
+            width: window.innerWidth,
+            height: window.innerHeight
+        }
+
+        window.addEventListener('resize', () =>
+        {
+            // Update sizes
+            sizes.width = window.innerWidth
+            sizes.height = window.innerHeight
+
+            // Update camera
+            camera.aspect = sizes.width / sizes.height
+            camera.updateProjectionMatrix()
+
+            // Update renderer
+            renderer.setSize(sizes.width, sizes.height)
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+        })
+
+        /**
+         * Camera
+         */
+        // Base camera
+        const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
+        camera.position.x = 0
+        camera.position.y = 0
+        camera.position.z = 1
+        scene.add(camera)
+
+        // Controls
+        const controls = new OrbitControls(camera, canvas)
+        controls.enableDamping = true
+
+        /**
+         * Renderer
+         */
+        const renderer = new THREE.WebGLRenderer({
+            canvas: canvas
+        })
+        renderer.setSize(sizes.width, sizes.height)
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+
+        renderer.shadowMap.enabled = true
+        // renderer.shadowMap.type = THREE.PCFSoftShadowMap
+
+        /**
+         * Animate
+         */
+        const clock = new THREE.Clock()
+
+        const tick = () => {
+            const elapsedTime = clock.getElapsedTime()
+
+            controls.update()
+
+            // Render
+            renderer.render(scene, camera)
+
+            // Call tick again on the next frame
+            window.requestAnimationFrame(tick)
+        }
+
+        tick()
+    </script>
+</body>
+</html>
